@@ -1,0 +1,46 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Output of build tools
+/build/
+/bin/
+
+# Dependency directories
+/vendor/
+
+# Go modules
+/go.sum
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment/config
+.env
+.env.*
+
+# Database
+*.db
+*.sqlite
+
+# Migrations generated binaries
+migrations/*.exe
+migrations/*.out
+
+# Misc
+*.bak
