@@ -15,7 +15,12 @@ type userRepository struct {
 
 var ErrNotFound = errors.New("user not found")
 
-func NewUserRepository(db *pgxpool.Pool) *userRepository {
+type UserRepository interface {
+	CreateUser(ctx context.Context, u *User) (string, error)
+	FindByEmail(ctx context.Context, email string) (*User, error)
+}
+
+func NewUserRepository(db *pgxpool.Pool) UserRepository {
 	return &userRepository{db: db}
 }
 
@@ -34,19 +39,19 @@ func (r *userRepository) CreateUser(ctx context.Context, u *User) (string, error
 	return returnedID, nil
 }
 
-func (r *userRepository) FindByEmail(ctx context.Context, email string) (string, error) {
-	query := `SELECT id FROM users WHERE email = $1`
+func (r *userRepository) FindByEmail(ctx context.Context, email string) (*User, error) {
+	query := `SELECT id, username, email, password, created_at FROM users WHERE email = $1`
 
 	opCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	var returnedID string
-	err := r.db.QueryRow(opCtx, query, email).Scan(&returnedID)
+	var u User
+	err := r.db.QueryRow(opCtx, query, email).Scan(&u.ID, &u.Username, &u.Email, &u.Password, &u.CreatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			return "", ErrNotFound
+			return nil, ErrNotFound
 		}
-		return "", err
+		return nil, err
 	}
-	return returnedID, nil
+	return &u, nil
 }

@@ -6,17 +6,25 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/NirajDonga/todo/internal/auth"
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type userService struct {
-	repo *userRepository
+type UserService interface {
+	RegisterUserService(ctx context.Context, u RegisterUser) (UserResponse, error)
+	LoginUserService(ctx context.Context, u LoginUser) (AuthResult, error)
 }
 
-func NewUserService(repo *userRepository) *userService {
+type userService struct {
+	repo UserRepository
+	auth auth.AuthService
+}
+
+func NewUserService(repo UserRepository, authSvc auth.AuthService) UserService {
 	return &userService{
 		repo: repo,
+		auth: authSvc,
 	}
 }
 
@@ -25,28 +33,64 @@ func (svc *userService) RegisterUserService(ctx context.Context, u RegisterUser)
 		return UserResponse{}, errors.New("Missing Required Fields")
 	}
 
-	_, err := svc.repo.FindByEmail(ctx, u.Email)
-	if err == nil {
+	existing, err := svc.repo.FindByEmail(ctx, u.Email)
+	if err == nil && existing != nil {
 		return UserResponse{}, errors.New("Email already registered")
+	}
+	if err != nil && err != ErrNotFound {
+		return UserResponse{}, err
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return UserResponse{}, fmt.Errorf("Hashing of password failed: %w", err)
+		return UserResponse{}, fmt.Errorf("hashing password failed: %w", err)
 	}
 
 	user := User{
 		ID:        uuid.New().String(),
 		Email:     u.Email,
-		Password:  hash,
+		Password:  string(hash),
 		Username:  u.Username,
 		CreatedAt: time.Now(),
 	}
 
-	created, err := svc.repo.CreateUser(ctx, &user)
+	id, err := svc.repo.CreateUser(ctx, &user)
 	if err != nil {
 		return UserResponse{}, err
 	}
 
-	return created
+	return UserResponse{ID: id, Email: user.Email, Username: user.Username}, nil
+}
+
+func (svc *userService) LoginUserService(ctx context.Context, in LoginUser) (AuthResult, error) {
+	if in.Email == "" || in.Password == "" {
+		return AuthResult{}, errors.New("missing credentials")
+	}
+
+	u, err := svc.repo.FindByEmail(ctx, in.Email)
+	if err != nil {
+		if err == ErrNotFound {
+			return AuthResult{}, errors.New("invalid credentials")
+		}
+		return AuthResult{}, err
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(in.Password)) != nil {
+		return AuthResult{}, errors.New("invalid credentials")
+	}
+
+	token, err := svc.auth.GenerateToken(ctx, u.ID)
+	if err != nil {
+		return AuthResult{}, fmt.Errorf("generate token: %w", err)
+	}
+
+	res := AuthResult{
+		Token: token,
+		UserInfo: UserResponse{
+			ID:       u.ID,
+			Email:    u.Email,
+			Username: u.Username,
+		},
+	}
+	return res, nil
 }
