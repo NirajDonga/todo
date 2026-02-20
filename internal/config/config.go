@@ -1,7 +1,7 @@
 package config
 
 import (
-	"log"
+	"fmt"
 	"os"
 
 	"github.com/joho/godotenv"
@@ -12,15 +12,19 @@ type Config struct {
 	JWT_SECRET string
 }
 
-func Load() Config {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+func Load() (Config, error) {
+	if err := godotenv.Load(); err != nil {
+		return Config{}, fmt.Errorf("loading .env: %w", err)
 	}
 
-	var config Config
-	config.DB_URI = os.Getenv("DATABASE_URL")
-	config.JWT_SECRET = os.Getenv("JWT_SECRET")
+	cfg := Config{
+		DB_URI:     os.Getenv("DATABASE_URL"),
+		JWT_SECRET: os.Getenv("JWT_SECRET"),
+	}
 
-	return config
+	if cfg.DB_URI == "" {
+		return Config{}, fmt.Errorf("environment variable DATABASE_URL is required")
+	}
+
+	return cfg, nil
 }

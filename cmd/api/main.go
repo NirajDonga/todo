@@ -9,17 +9,17 @@ import (
 )
 
 func main() {
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("config load: %v", err)
+	}
+
 	ctx := context.Background()
-
-	cfg := config.Load()
-
 	dbPool, err := database.Connect(ctx, cfg.DB_URI)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("db connect: %v", err)
 	}
+
 	defer dbPool.Close()
-
-
-	
 
 }
