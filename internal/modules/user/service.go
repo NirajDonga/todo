@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/NirajDonga/todo/internal/auth"
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,11 +16,11 @@ type UserService interface {
 }
 
 type userService struct {
-	repo UserRepository
+	repo UserRepo
 	auth auth.AuthService
 }
 
-func NewUserService(repo UserRepository, authSvc auth.AuthService) UserService {
+func NewUserService(repo UserRepo, authSvc auth.AuthService) UserService {
 	return &userService{
 		repo: repo,
 		auth: authSvc,
@@ -47,7 +46,6 @@ func (svc *userService) RegisterUserService(ctx context.Context, u RegisterUser)
 	}
 
 	user := User{
-		ID:        uuid.New().String(),
 		Email:     u.Email,
 		Password:  string(hash),
 		Username:  u.Username,
@@ -79,7 +77,7 @@ func (svc *userService) LoginUserService(ctx context.Context, in LoginUser) (Aut
 		return AuthResult{}, errors.New("invalid credentials")
 	}
 
-	token, err := svc.auth.GenerateToken(ctx, u.ID)
+	token, err := svc.auth.GenerateToken(ctx, u.ID.String())
 	if err != nil {
 		return AuthResult{}, fmt.Errorf("generate token: %w", err)
 	}
@@ -87,7 +85,7 @@ func (svc *userService) LoginUserService(ctx context.Context, in LoginUser) (Aut
 	res := AuthResult{
 		Token: token,
 		UserInfo: UserResponse{
-			ID:       u.ID,
+			ID:       u.ID.String(),
 			Email:    u.Email,
 			Username: u.Username,
 		},
